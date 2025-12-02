@@ -1,7 +1,3 @@
-###########################################################
-#          FAKE NEWS DETECTION DASHBOARD                  #
-###########################################################
-
 import os
 import requests
 import streamlit as st
@@ -288,6 +284,6 @@ with right:
 
     st.write("")
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("🎯 Why Recruiters Love This Project")
+    st.subheader("🎯 Why This Project Stands Out")
     st.write("- End-to-end NLP pipeline\n- Cloud resiliency with fallback\n- Strong UI/UX\n- Demonstrates ML engineering + deployment skills")
     st.markdown("</div>", unsafe_allow_html=True)
