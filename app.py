@@ -1,3 +1,7 @@
+###########################################################
+#          FAKE NEWS DETECTION DASHBOARD                  #
+###########################################################
+
 import os
 import pandas as pd
 import requests
@@ -359,7 +363,7 @@ with right:
     st.subheader("🛡️ How This App Detects It")
     st.write(
         "- Primary: RoBERTa model via HuggingFace Router API\n"
-        "- Backup: TF-IDF + Logistic Regression on your fake.csv\n"
+        "- Backup: TF-IDF + Logistic Regression\n"
         "- Extra: Sentiment, topic, and style analysis\n"
         "- Output: Fake/Real prediction with confidence and risk label"
     )
