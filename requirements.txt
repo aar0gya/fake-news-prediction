@@ -1,6 +1,9 @@
-transformers==4.40.0
-torch==2.2.0
-streamlit
-numpy
-protobuf==3.20.*
+transformers==4.37.2
+torch==2.1.2+cpu
+tokenizers==0.15.1
+streamlit==1.31.1
+numpy==1.26.2
+protobuf==3.20.3
+safetensors==0.4.2
+
 --extra-index-url https://download.pytorch.org/whl/cpu
