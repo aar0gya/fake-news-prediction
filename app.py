@@ -5,7 +5,9 @@
 import os
 import requests
 import streamlit as st
-from textblob import TextBlob  # For sentiment insights (Cloud safe)
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+sentiment_analyzer = SentimentIntensityAnalyzer()
+
 
 # ======================================
 # HuggingFace API Configuration
@@ -172,9 +174,15 @@ with left:
         label_class = "fake-label" if prediction == "Fake" else "real-label"
 
         # ---------------- Sentiment Analysis ----------------
-        blob = TextBlob(input_text)
-        polarity = blob.sentiment.polarity
-        sentiment = "Negative" if polarity < -0.1 else "Positive" if polarity > 0.1 else "Neutral"
+        scores = sentiment_analyzer.polarity_scores(input_text)
+        compound = scores["compound"]
+
+        if compound >= 0.35:
+            sentiment = "Positive"
+        elif compound <= -0.35:
+            sentiment = "Negative"
+        else:
+            sentiment = "Neutral"
 
         # ---------------- Keyword Extraction ----------------
         keywords = list({w.lower() for w in input_text.split() if len(w) > 6})[:6]
