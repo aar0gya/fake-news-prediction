@@ -1,6 +1,11 @@
+##############################
+#   FAKE NEWS DETECTION APP
+##############################
+
 import os
 import requests
 import streamlit as st
+from textblob import TextBlob  # For sentiment insights (Cloud safe)
 
 # ======================================
 # HuggingFace API Configuration
@@ -12,7 +17,7 @@ headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 
 def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
+    response = requests.post(API_URL, headers=headers, json=payload, timeout=40)
     return response.json()
 
 
@@ -42,14 +47,12 @@ st.markdown(
     background: linear-gradient(90deg, #fb923c, #facc15, #fef9c3);
     -webkit-background-clip: text;
     color: transparent;
-    text-align: left;
 }
 
-/* Subheading */
+/* Subtitle */
 .subtitle {
     font-size: 1.2rem;
     color: #cbd5e1;
-    margin-bottom: 1rem;
 }
 
 /* Card Containers */
@@ -69,43 +72,52 @@ st.markdown(
     border: 1px solid rgba(148,163,184,0.35);
 }
 
-/* Example buttons */
+/* Fake / Real Labels */
+.fake-label { color: #fca5a5; font-weight: 700; font-size: 1.7rem; }
+.real-label { color: #86efac; font-weight: 700; font-size: 1.7rem; }
+
+/* Example Buttons */
 .example-btn {
     border-radius: 30px;
     padding: 0.4rem 1rem;
-    margin-right: 0.5rem;
+    margin-right: 0.4rem;
     background-color: #1e293b;
     color: #e2e8f0;
     border: 1px solid #334155;
     cursor: pointer;
-    transition: 0.2s ease-in-out;
+    transition: 0.2s;
 }
 .example-btn:hover {
     background-color: #475569;
     border-color: #94a3b8;
 }
 
-/* Labels */
-.fake-label { color: #fca5a5; font-weight: 700; font-size: 1.8rem; }
-.real-label { color: #86efac; font-weight: 700; font-size: 1.8rem; }
+/* Additional Insights */
+.insight-label {
+    color: #fbbf24;
+    font-weight: 700;
+    font-size: 1.15rem;
+}
+
 </style>
 """,
     unsafe_allow_html=True,
 )
 
 # ======================================
-# Page Header
+# Header
 # ======================================
 st.markdown("<div class='app-title'>Fake News Detection Dashboard</div>", unsafe_allow_html=True)
 st.markdown(
-    "<div class='subtitle'>Analyze headlines or news snippets using an AI-powered model trained on real and fake news datasets.</div>",
-    unsafe_allow_html=True,
-)
+    "<div class='subtitle'>Analyze news and get AI-driven insights, sentiment breakdown, keywords, and risk analysis.</div>",
+    unsafe_allow_html=True)
+st.write("")
 
 # ======================================
-# Example Headlines (Button Style)
+# Quick Example Headlines
 # ======================================
 st.subheader("Quick Examples")
+
 examples = [
     "Government secretly plans nationwide curfew starting tomorrow.",
     "Scientists announce breakthrough treatment that reverses aging.",
@@ -114,139 +126,128 @@ examples = [
     "Aliens have contacted world leaders demanding a global meeting."
 ]
 
-example_cols = st.columns(len(examples))
-
+cols = st.columns(len(examples))
 example_selected = ""
-for idx, text in enumerate(examples):
-    if example_cols[idx].button(text[:35] + "...", key=f"ex_{idx}"):
+
+for i, text in enumerate(examples):
+    if cols[i].button(text[:28] + "..."):
         example_selected = text
 
 # ======================================
-# Main Input Area
+# Main Layout
 # ======================================
-left, right = st.columns([1.4, 1])
+left, right = st.columns([1.5, 1])
 
+# ======================================
+# LEFT PANEL (Prediction + Interpretability)
+# ======================================
 with left:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-
     st.subheader("Enter News Content")
+
     input_text = st.text_area(
         "",
-        placeholder="Type or paste a news headline/article...",
-        height=180,
-        value=example_selected
+        value=example_selected,
+        placeholder="Paste or type a news headline/article...",
+        height=180
     )
 
     analyze = st.button("🔍 Analyze News", type="primary")
-
-    result_box = st.empty()
+    result_area = st.empty()
 
     if analyze and input_text.strip():
-        with st.spinner("Analyzing text using HuggingFace model..."):
+
+        with st.spinner("Analyzing with AI model..."):
             output = query({"inputs": input_text})
 
         try:
             label = output[0][0]["label"]
             score = float(output[0][0]["score"])
-        except:
-            result_box.error("Model error: Unable to interpret the API response.")
+        except Exception:
+            result_area.error("API Error — Unable to analyze this text.")
             st.stop()
 
         prediction = "Fake" if label == "LABEL_0" else "Real"
-        conf_pct = round(score * 100, 1)
+        confidence_pct = round(score * 100, 2)
         label_class = "fake-label" if prediction == "Fake" else "real-label"
 
-        with result_box.container():
+        # ---------------- Sentiment Analysis ----------------
+        blob = TextBlob(input_text)
+        polarity = blob.sentiment.polarity
+        sentiment = "Negative" if polarity < -0.1 else "Positive" if polarity > 0.1 else "Neutral"
+
+        # ---------------- Keyword Extraction ----------------
+        keywords = list({w.lower() for w in input_text.split() if len(w) > 6})[:6]
+
+        # ---------------- Credibility Score ----------------
+        risk_label = (
+            "High Risk" if prediction == "Fake" and confidence_pct > 70 else
+            "Questionable" if prediction == "Fake" else
+            "Likely Credible"
+        )
+
+        with result_area.container():
             st.markdown("<div class='result-card'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='{label_class}'>{prediction} News</div>", unsafe_allow_html=True)
-            st.write(f"**Confidence:** {conf_pct}%")
+
+            st.markdown(f"<span class='{label_class}'>{prediction} News</span>", unsafe_allow_html=True)
+            st.write(f"**Model Confidence:** {confidence_pct}%")
             st.progress(score)
-            st.caption("This is an AI model prediction and should not replace fact-checking from reliable sources.")
+
+            st.markdown("---")
+            st.markdown("<span class='insight-label'>📝 Sentiment</span>", unsafe_allow_html=True)
+            st.write(f"Sentiment detected: **{sentiment}**")
+
+            st.markdown("<span class='insight-label'>🔑 Possible Keywords</span>", unsafe_allow_html=True)
+            st.write(", ".join(keywords) if keywords else "No strong keywords detected")
+
+            st.markdown("<span class='insight-label'>📊 Credibility Assessment</span>", unsafe_allow_html=True)
+            st.write(f"**{risk_label}**")
+
+            st.caption("Note: These insights assist understanding but do not replace professional fact-checking.")
             st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ======================================
-#  Right Panel — Information & Visuals
+# RIGHT PANEL (Educational + Visual)
 # ======================================
-
 with right:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("🧠 How Fake News Spreads")
-
     st.write("""
-    Fake news leverages human psychology and digital platforms.  
-    Here are the **most common drivers** behind misinformation:
+    Fake news thrives due to psychological and digital vulnerabilities:
+    - 🔁 **Rapid Amplification** through social platforms  
+    - 😱 **Emotional Targeting** driving engagement  
+    - 🤖 **Bots & Automation** boosting false claims  
+    - 🎯 **Confirmation Bias** reinforcing beliefs  
     """)
-
-    st.markdown("""
-    - 🔁 **Rapid Sharing:** Social media boosts sensational or emotional content.  
-    - 😱 **Emotional Targeting:** Fear, anger, and surprise increase clicks.  
-    - 🤖 **Bots & Troll Farms:** Automated networks amplify false narratives.  
-    - 🎯 **Confirmation Bias:** People believe content aligning with their views.  
-    """)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("")
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("🛡️ How AI Detects Fake News")
-
-    st.write("This app uses a machine learning model to identify patterns linked to misinformation:")
-
-    st.markdown("""
-    #### 🔍 What the AI looks at:
-    - Unusual writing patterns  
-    - Sensational or exaggerated claims  
-    - Inconsistent facts  
-    - Biased emotional tone  
-
-    #### 🧪 Why AI is useful:
-    - Processes large amounts of information  
-    - Detects patterns humans might miss  
-    - Reduces misinformation spread  
-    - Gives a quick, data-driven credibility check  
+    st.write("""
+    AI models assess:
+    - Writing structure  
+    - Emotional tone  
+    - Fact consistency  
+    - Linguistic patterns  
     """)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.write("")
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("🌐 Trusted News Sources")
-
-    st.write("Always compare breaking news with reliable, evidence-based outlets:")
-
-    colA, colB = st.columns(2)
-
-    with colA:
-        st.image("https://upload.wikimedia.org/wikipedia/commons/4/40/BBC_News_2022.svg", width=90)
-        st.image("https://upload.wikimedia.org/wikipedia/commons/4/4e/Reuters_logo.svg", width=90)
-        st.image("https://upload.wikimedia.org/wikipedia/commons/0/09/Aljazeera_eng.svg", width=90)
-
-    with colB:
-        st.image("https://upload.wikimedia.org/wikipedia/commons/a/a7/CNN_International_logo.svg", width=90)
-        st.image("https://upload.wikimedia.org/wikipedia/commons/6/67/The_New_York_Times_logo.png", width=110)
-        st.image("https://upload.wikimedia.org/wikipedia/commons/2/25/The_Guardian_2018.svg", width=110)
-
-    st.caption("Tip: Cross-check at least **two independent** sources before trusting a headline.")
+    st.write("Why AI is helpful:")
+    st.write("""
+    - Detects subtle misinformation  
+    - Scales across large text volumes  
+    - Provides instant credibility scores  
+    """)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("")
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("🎯 Why This Project Matters")
-
     st.write("""
-    Misinformation can influence elections, cause panic, and harm communities.  
-    This project shows skills in:
-
-    - 🧩 **Machine Learning Deployment**  
-    - 🎨 **UI/UX Design**  
-    - 🧪 **NLP & Text Classification**  
-    - ☁️ **Cloud Deployment (Streamlit Cloud)**  
-    - 🔗 **API Integration (HuggingFace)**  
-
-    Recruiters can view this as a demonstration of **full-stack ML capability**,  
-    combining technical depth with a polished, user-friendly interface.
+    - Shows **full-stack ML deployment**  
+    - Demonstrates **NLP, UI/UX, API integration**  
+    - Works **fully on Streamlit Cloud**  
+    - Recruiters see: design + engineering + ML knowledge  
     """)
-
     st.markdown("</div>", unsafe_allow_html=True)
