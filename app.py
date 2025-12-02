@@ -1,6 +1,8 @@
 import os
-
 os.environ["TRANSFORMERS_NO_TF"] = "1"
+os.environ["KERAS_BACKEND"] = "torch"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 
 import streamlit as st
 from transformers import pipeline
